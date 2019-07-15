@@ -1,13 +1,4 @@
 <?php
-/**
- * Чтобы обратиться к методу API ВКонтакте, Вам необходимо выполнить POST или GET запрос такого вида:
- * https://api.vk.com/method/METHOD_NAME?PARAMETERS&access_token=ACCESS_TOKEN&v=V
- *
- * METHOD_NAME (обязательно) — название метода API, к которому Вы хотите обратиться.
- * PARAMETERS (опционально) — входные параметры соответствующего метода API, последовательность пар name=value, разделенных амперсандом.
- * ACCESS_TOKEN (обязательно) — ключ доступа.
- * V (обязательно) — используемая версия API. Использование этого параметра применяет некоторые изменения в формате ответа различных методов.
- **/
 
 /**
  * @param string $method
@@ -29,15 +20,28 @@ function savePictures() {
         ]
     );
 
-    $photos = json_decode(curl_exec($ch), true)['response']['items'];
+    $curlResponse = json_decode(curl_exec($ch), true)['response'];
+    $photosInDir = scandir('pictures');
+    $photosUrl = [];
+    $photosUrlBasename = [];
 
-    foreach ($photos as $photo) {
-        $photoUrl = array_pop($photo['sizes'])['url'];
-
-        $content = file_get_contents($photoUrl);
-        file_put_contents('pictures/'.pathinfo($photoUrl)['basename'], $content);
-        echo "Download:  $photoUrl \n";
+    foreach ($curlResponse['items'] as $photo) {
+        $url = array_pop($photo['sizes'])['url'];
+        $photosUrl[] = $url;
+        $photosUrlBasename[] = pathinfo($url)['basename'];
     }
+
+    $needDownloads = array_keys(array_diff($photosUrlBasename, $photosInDir));
+    foreach ($needDownloads as $key) {
+        $url = $photosUrl[$key];
+
+        $content = file_get_contents($url);
+        file_put_contents('pictures/'.pathinfo($url)['basename'], $content);
+        echo "Download: $url\n";
+    }
+
+    echo "\nresult: " . (count(scandir('pictures')) - 2) . '/' . $curlResponse['count'];
+    echo "\nУникальных картинок: " . (count(array_unique($photosUrl)));
 
     curl_close($ch);
 }
